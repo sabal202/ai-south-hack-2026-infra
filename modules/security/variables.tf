@@ -3,12 +3,17 @@ variable "name" {
   type        = string
 }
 
-variable "network_id" {
-  description = "ID of the VPC network"
+variable "public_cidr" {
+  description = "CIDR block of the public subnet (edge VM network)"
   type        = string
 }
 
-variable "private_subnet_cidr" {
-  description = "CIDR block of the private subnet (for NAT traffic rules)"
+variable "private_cidr" {
+  description = "CIDR block of the private subnet (team VMs network)"
+  type        = string
+}
+
+variable "availability_zone_id" {
+  description = "Availability zone ID for security groups"
   type        = string
 }

@@ -1,37 +1,28 @@
 # =============================================================================
-# VPC Network
-# =============================================================================
-
-resource "yandex_vpc_network" "this" {
-  name        = var.network_name
-  description = "VPC network for AI Camp infrastructure"
-}
-
-# =============================================================================
 # Public Subnet (for Edge/NAT VM)
 # =============================================================================
 
-resource "yandex_vpc_subnet" "public" {
-  name           = "${var.network_name}-public"
-  description    = "Public subnet for edge/NAT server"
-  zone           = var.zone
-  network_id     = yandex_vpc_network.this.id
-  v4_cidr_blocks = [var.public_cidr]
+resource "cloudru_evolution_subnet" "public" {
+  name            = "${var.project_name}-public"
+  subnet_address  = var.public_cidr
+  default_gateway = cidrhost(var.public_cidr, 1)
+  routed_network  = true
+
+  availability_zone {
+    id = var.availability_zone_id
+  }
 }
 
 # =============================================================================
-# Private Subnet (for Team VMs) - Optional
+# Private Subnet (for Team VMs)
 # =============================================================================
 
-resource "yandex_vpc_subnet" "private" {
-  count = var.create_private_subnet ? 1 : 0
+resource "cloudru_evolution_subnet" "private" {
+  name            = "${var.project_name}-private"
+  subnet_address  = var.private_cidr
+  default_gateway = cidrhost(var.private_cidr, 1)
 
-  name           = "${var.network_name}-private"
-  description    = "Private subnet for team VMs"
-  zone           = var.zone
-  network_id     = yandex_vpc_network.this.id
-  v4_cidr_blocks = [var.private_cidr]
-
-  # Route table for NAT through edge VM
-  route_table_id = var.route_table_id
+  availability_zone {
+    id = var.availability_zone_id
+  }
 }

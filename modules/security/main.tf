@@ -2,54 +2,72 @@
 # Edge Security Group
 # =============================================================================
 
-resource "yandex_vpc_security_group" "edge" {
+resource "cloudru_evolution_security_group" "edge" {
   name        = "${var.name}-edge-sg"
   description = "Security group for edge/NAT server"
-  network_id  = var.network_id
+
+  availability_zone {
+    id = var.availability_zone_id
+  }
 
   # SSH access from anywhere
-  ingress {
-    protocol       = "TCP"
-    description    = "SSH access"
-    v4_cidr_blocks = ["0.0.0.0/0"]
-    port           = 22
+  rules {
+    direction        = "ingress"
+    ether_type       = "IPv4"
+    ip_protocol      = "tcp"
+    port_range       = "22:22"
+    remote_ip_prefix = "0.0.0.0/0"
+    description      = "SSH access"
   }
 
   # HTTP access from anywhere
-  ingress {
-    protocol       = "TCP"
-    description    = "HTTP access"
-    v4_cidr_blocks = ["0.0.0.0/0"]
-    port           = 80
+  rules {
+    direction        = "ingress"
+    ether_type       = "IPv4"
+    ip_protocol      = "tcp"
+    port_range       = "80:80"
+    remote_ip_prefix = "0.0.0.0/0"
+    description      = "HTTP access"
   }
 
   # HTTPS access from anywhere
-  ingress {
-    protocol       = "TCP"
-    description    = "HTTPS access"
-    v4_cidr_blocks = ["0.0.0.0/0"]
-    port           = 443
+  rules {
+    direction        = "ingress"
+    ether_type       = "IPv4"
+    ip_protocol      = "tcp"
+    port_range       = "443:443"
+    remote_ip_prefix = "0.0.0.0/0"
+    description      = "HTTPS access"
   }
 
   # Allow all traffic from private subnet (for NAT)
-  ingress {
-    protocol       = "ANY"
-    description    = "All traffic from private subnet"
-    v4_cidr_blocks = [var.private_subnet_cidr]
+  rules {
+    direction        = "ingress"
+    ether_type       = "IPv4"
+    ip_protocol      = "any"
+    port_range       = "any"
+    remote_ip_prefix = var.private_cidr
+    description      = "All traffic from private subnet"
   }
 
   # ICMP for diagnostics
-  ingress {
-    protocol       = "ICMP"
-    description    = "ICMP ping"
-    v4_cidr_blocks = ["0.0.0.0/0"]
+  rules {
+    direction        = "ingress"
+    ether_type       = "IPv4"
+    ip_protocol      = "icmp"
+    port_range       = "any"
+    remote_ip_prefix = "0.0.0.0/0"
+    description      = "ICMP ping"
   }
 
   # Allow all outbound traffic
-  egress {
-    protocol       = "ANY"
-    description    = "Allow all outbound traffic"
-    v4_cidr_blocks = ["0.0.0.0/0"]
+  rules {
+    direction        = "egress"
+    ether_type       = "IPv4"
+    ip_protocol      = "any"
+    port_range       = "any"
+    remote_ip_prefix = "0.0.0.0/0"
+    description      = "Allow all outbound traffic"
   }
 }
 
@@ -57,52 +75,71 @@ resource "yandex_vpc_security_group" "edge" {
 # Team VM Security Group
 # =============================================================================
 
-resource "yandex_vpc_security_group" "team" {
+resource "cloudru_evolution_security_group" "team" {
   name        = "${var.name}-team-sg"
   description = "Security group for team VMs"
-  network_id  = var.network_id
 
-  # SSH access only from edge security group
-  ingress {
-    protocol          = "TCP"
-    description       = "SSH from edge"
-    security_group_id = yandex_vpc_security_group.edge.id
-    port              = 22
+  availability_zone {
+    id = var.availability_zone_id
   }
 
-  # HTTP/HTTPS access only from edge security group (for Traefik proxy)
-  ingress {
-    protocol          = "TCP"
-    description       = "HTTP from edge"
-    security_group_id = yandex_vpc_security_group.edge.id
-    port              = 80
+  # SSH access only from edge (public subnet)
+  rules {
+    direction        = "ingress"
+    ether_type       = "IPv4"
+    ip_protocol      = "tcp"
+    port_range       = "22:22"
+    remote_ip_prefix = var.public_cidr
+    description      = "SSH from edge"
   }
 
-  ingress {
-    protocol          = "TCP"
-    description       = "HTTPS from edge"
-    security_group_id = yandex_vpc_security_group.edge.id
-    port              = 443
+  # HTTP access only from edge (for Traefik proxy)
+  rules {
+    direction        = "ingress"
+    ether_type       = "IPv4"
+    ip_protocol      = "tcp"
+    port_range       = "80:80"
+    remote_ip_prefix = var.public_cidr
+    description      = "HTTP from edge"
   }
 
-  # Allow traffic between team VMs in the same security group
-  ingress {
-    protocol          = "ANY"
-    description       = "Inter-team communication"
-    predefined_target = "self_security_group"
+  # HTTPS access only from edge (for Traefik proxy)
+  rules {
+    direction        = "ingress"
+    ether_type       = "IPv4"
+    ip_protocol      = "tcp"
+    port_range       = "443:443"
+    remote_ip_prefix = var.public_cidr
+    description      = "HTTPS from edge"
+  }
+
+  # Allow traffic between team VMs (inter-team via edge)
+  rules {
+    direction        = "ingress"
+    ether_type       = "IPv4"
+    ip_protocol      = "any"
+    port_range       = "any"
+    remote_ip_prefix = var.private_cidr
+    description      = "Inter-team communication"
   }
 
   # ICMP for diagnostics from edge
-  ingress {
-    protocol          = "ICMP"
-    description       = "ICMP from edge"
-    security_group_id = yandex_vpc_security_group.edge.id
+  rules {
+    direction        = "ingress"
+    ether_type       = "IPv4"
+    ip_protocol      = "icmp"
+    port_range       = "any"
+    remote_ip_prefix = var.public_cidr
+    description      = "ICMP from edge"
   }
 
   # Allow all outbound traffic (through NAT)
-  egress {
-    protocol       = "ANY"
-    description    = "Allow all outbound traffic"
-    v4_cidr_blocks = ["0.0.0.0/0"]
+  rules {
+    direction        = "egress"
+    ether_type       = "IPv4"
+    ip_protocol      = "any"
+    port_range       = "any"
+    remote_ip_prefix = "0.0.0.0/0"
+    description      = "Allow all outbound traffic"
   }
 }

@@ -1,0 +1,57 @@
+---
+- name: Download Xray
+  get_url:
+    url: "https://github.com/XTLS/Xray-core/releases/download/v{{ xray_version }}/Xray-linux-64.zip"
+    dest: /tmp/xray.zip
+    mode: "0644"
+
+- name: Create Xray directory
+  file:
+    path: /usr/local/share/xray
+    state: directory
+    mode: "0755"
+
+- name: Extract Xray
+  unarchive:
+    src: /tmp/xray.zip
+    dest: /usr/local/share/xray
+    remote_src: true
+
+- name: Create Xray config directory
+  file:
+    path: /etc/xray
+    state: directory
+    mode: "0755"
+
+- name: Deploy Xray config
+  template:
+    src: config.json.j2
+    dest: /etc/xray/config.json
+    mode: "0644"
+  notify: restart xray
+
+- name: Deploy Xray systemd service
+  copy:
+    content: |
+      [Unit]
+      Description=Xray Service
+      After=network.target
+
+      [Service]
+      ExecStart=/usr/local/share/xray/xray run -config /etc/xray/config.json
+      Restart=on-failure
+      RestartSec=3
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/xray.service
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart xray
+
+- name: Enable and start Xray
+  systemd:
+    name: xray
+    state: started
+    enabled: true

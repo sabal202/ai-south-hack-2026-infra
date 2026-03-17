@@ -1,0 +1,33 @@
+---
+- name: Create Traefik directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /etc/traefik
+    - /etc/traefik/dynamic
+
+- name: Deploy Traefik static config
+  template:
+    src: traefik.yml.j2
+    dest: /etc/traefik/traefik.yml
+    mode: "0644"
+  notify: restart traefik
+
+- name: Deploy Traefik dynamic config
+  template:
+    src: dynamic.yml.j2
+    dest: /etc/traefik/dynamic/teams.yml
+    mode: "0644"
+  notify: restart traefik
+
+- name: Run Traefik container
+  community.docker.docker_container:
+    name: traefik
+    image: "traefik:{{ traefik_version }}"
+    state: started
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - /etc/traefik:/etc/traefik:ro

@@ -6,20 +6,20 @@
 # =============================================================================
 
 # =============================================================================
-# Yandex Cloud Configuration (REQUIRED)
+# Cloud.ru Evolution Configuration (REQUIRED)
 # =============================================================================
 
-# Your Yandex Cloud folder ID
-folder_id = "your-folder-id-here"
+# Project ID from console.cloud.ru (URL of your project)
+project_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
-# Availability zone
-zone = "ru-central1-b"
+# Service account API key (generate in Cloud.ru console → Service accounts → Keys)
+auth_key_id = ""
+auth_secret = ""
 
 # =============================================================================
 # Network Configuration
 # =============================================================================
 
-network_name = "ai-camp-network"
 public_cidr  = "10.0.1.0/24"
 private_cidr = "10.0.2.0/24"
 
@@ -27,67 +27,45 @@ private_cidr = "10.0.2.0/24"
 # Project Configuration
 # =============================================================================
 
-project_name = "ai-camp"
-domain       = "camp.aitalenthub.ru"
+domain = "south.aitalenthub.ru"
 
 # =============================================================================
 # Edge VM Configuration
 # =============================================================================
 
-edge_platform      = "standard-v3"
-edge_cores         = 2
-edge_memory        = 4
-edge_disk_size     = 20
-edge_core_fraction = 100
-edge_preemptible   = false
+edge_cores     = 2
+edge_memory    = 4    # GB
+edge_disk_size = 20   # GB
 
 # SSH public key for admin access to jump host (REQUIRED)
 jump_user       = "jump"
 jump_public_key = "ssh-ed25519 AAAA... admin@example.com"
 
-# Path to admin's private key (for Terraform to add team keys to bastion)
-jump_private_key_path = "~/.ssh/id_ed25519"
-
 # =============================================================================
 # Team VM Configuration
 # =============================================================================
 
-team_platform      = "standard-v3"
-team_cores         = 4
-team_memory        = 8
-team_disk_size     = 65
-team_core_fraction = 100
-team_preemptible   = false
+team_cores     = 4
+team_memory    = 8    # GB
+team_disk_size = 65   # GB
 
-# Team definitions - start empty for Phase 1 (NAT only)
-# Add teams incrementally: terraform apply creates only new VMs
+# Team definitions - start empty, add incrementally
+# Each team needs: user (VM username), public_keys (extra SSH keys), ip (static IP in private subnet)
 teams = {}
 
-# Phase 2 example (one test team):
+# Example:
 # teams = {
-#   "01" = {
-#     user        = "team01"
-#     public_keys = []  # Will be auto-generated
-#   }
-# }
-
-# Phase 3 example (all teams):
-# teams = {
-#   "01" = { user = "team01", public_keys = [] }
-#   "02" = { user = "team02", public_keys = [] }
-#   "03" = { user = "team03", public_keys = [] }
-#   # Add more teams as needed...
+#   "team01"    = { user = "team01",    public_keys = [], ip = "10.0.2.11" }
+#   "dashboard" = { user = "dashboard", public_keys = [], ip = "10.0.2.100" }
+#   "shared"    = { user = "shared",    public_keys = [], ip = "10.0.2.101" }
 # }
 
 # =============================================================================
 # Xray/VLESS Configuration (for transparent proxy through AI APIs)
 # =============================================================================
 # PREFERRED METHOD: Edit secrets/xray-config.json directly (entire JSON config)
-# After first terraform apply, secrets/xray-config.json will be created.
-# You can edit this file and run terraform apply to sync changes to edge VM.
 #
-# ALTERNATIVE METHOD: Use variables below (will be ignored if secrets/xray-config.json exists)
-# These variables generate initial config from templates/xray/config.json.tpl
+# ALTERNATIVE METHOD: Use variables below (ignored if secrets/xray-config.json exists)
 
 # VLESS server settings
 vless_server    = ""                    # e.g., "your-vless-server.example.com"

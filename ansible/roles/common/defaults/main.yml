@@ -1,0 +1,8 @@
+---
+common_packages:
+  - curl
+  - wget
+  - htop
+  - jq
+  - unzip
+  - net-tools

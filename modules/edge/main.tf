@@ -1,61 +1,68 @@
 # =============================================================================
-# Ubuntu Image Data Source
+# Floating IP for Edge VM
 # =============================================================================
 
-data "yandex_compute_image" "ubuntu" {
-  family = "ubuntu-2204-lts"
+resource "cloudru_evolution_fip" "edge" {
+  name = "south-edge-fip"
+
+  availability_zone {
+    id = var.availability_zone_id
+  }
 }
 
 # =============================================================================
-# Edge/NAT VM Instance
+# Edge VM Instance (dual-homed: public + private subnets)
 # =============================================================================
 
-resource "yandex_compute_instance" "edge" {
-  name        = "${var.name}-edge"
-  hostname    = "edge"
-  platform_id = var.platform
-  zone        = var.zone
+resource "cloudru_evolution_compute" "edge" {
+  name      = "south-edge"
+  flavor_id = var.flavor_id
 
-  resources {
-    cores         = var.cores
-    memory        = var.memory
-    core_fraction = var.core_fraction
+  availability_zone {
+    name = var.availability_zone_name
+  }
+
+  image {
+    name       = "ubuntu-22.04"
+    host_name  = "south-edge"
+    user_name  = var.user_name
+    public_key = var.public_key
   }
 
   boot_disk {
-    initialize_params {
-      image_id = data.yandex_compute_image.ubuntu.id
-      size     = var.disk_size
-      type     = "network-ssd"
+    name = "south-edge-boot"
+    size = var.disk_size
+
+    disk_type {
+      id = var.disk_type_id
     }
   }
 
-  network_interface {
-    subnet_id          = var.public_subnet_id
-    nat                = true
-    security_group_ids = [var.edge_sg_id]
+  # Public subnet interface (with FIP)
+  network_interfaces {
+    subnet {
+      name = var.public_subnet_name
+    }
+
+    security_groups {
+      id = var.security_group_id
+    }
+
+    fip {
+      id = cloudru_evolution_fip.edge.id
+    }
   }
 
-  metadata = {
-    user-data = templatefile("${path.module}/cloud-init.tpl", {
-      jump_user           = var.jump_user
-      jump_public_key     = var.jump_public_key
-      traefik_config      = var.traefik_config
-      xray_config         = var.xray_config
-      private_subnet_cidr = var.private_subnet_cidr
-      vless_server_ip     = var.vless_server_ip
-    })
-  }
+  # Private subnet interface (gateway for team VMs)
+  network_interfaces {
+    subnet {
+      name = var.private_subnet_name
+    }
 
-  scheduling_policy {
-    preemptible = var.preemptible
-  }
+    security_groups {
+      id = var.security_group_id
+    }
 
-  allow_stopping_for_update = true
-
-  lifecycle {
-    ignore_changes = [
-      boot_disk[0].initialize_params[0].image_id
-    ]
+    ip_address = var.private_ip
   }
 }

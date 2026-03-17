@@ -1,34 +1,20 @@
-variable "name" {
-  description = "Base name for team resources"
+variable "teams" {
+  description = "Map of team configurations keyed by team ID"
+  type = map(object({
+    user        = string
+    public_keys = list(string)
+    ip          = string
+  }))
+}
+
+variable "flavor_id" {
+  description = "Cloud.ru Evolution flavor ID for the VM"
   type        = string
 }
 
-variable "team_id" {
-  description = "Team identifier (e.g., '01', '02')"
+variable "disk_type_id" {
+  description = "Cloud.ru Evolution disk type ID"
   type        = string
-}
-
-variable "zone" {
-  description = "Yandex Cloud availability zone"
-  type        = string
-}
-
-variable "platform" {
-  description = "Platform ID for the VM"
-  type        = string
-  default     = "standard-v3"
-}
-
-variable "cores" {
-  description = "Number of CPU cores"
-  type        = number
-  default     = 4
-}
-
-variable "memory" {
-  description = "Memory in GB"
-  type        = number
-  default     = 8
 }
 
 variable "disk_size" {
@@ -37,40 +23,24 @@ variable "disk_size" {
   default     = 65
 }
 
-variable "core_fraction" {
-  description = "Guaranteed vCPU share (50, 100)"
-  type        = number
-  default     = 100
+variable "availability_zone_name" {
+  description = "Cloud.ru Evolution availability zone"
+  type        = string
+  default     = "ru.AZ-1"
 }
 
-variable "preemptible" {
-  description = "Whether the VM is preemptible"
-  type        = bool
-  default     = false
-}
-
-variable "private_subnet_id" {
-  description = "ID of the private subnet"
+variable "private_subnet_name" {
+  description = "Name of the private subnet"
   type        = string
 }
 
-variable "team_sg_id" {
-  description = "ID of the team security group"
+
+variable "security_group_id" {
+  description = "ID of the security group for team VMs"
   type        = string
 }
 
-variable "team_user" {
-  description = "Username for the team"
-  type        = string
-}
-
-variable "public_keys" {
-  description = "List of SSH public keys for the team user"
-  type        = list(string)
-}
-
-variable "domain" {
-  description = "Base domain for the camp"
-  type        = string
-  default     = "camp.aitalenthub.ru"
+variable "team_public_keys" {
+  description = "SSH public key per team, keyed by team ID"
+  type        = map(string)
 }

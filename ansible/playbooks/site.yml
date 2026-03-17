@@ -1,0 +1,3 @@
+---
+- import_playbook: edge.yml
+- import_playbook: team-vms.yml

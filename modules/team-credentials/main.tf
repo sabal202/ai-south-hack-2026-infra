@@ -80,11 +80,11 @@ resource "local_file" "team_github_public_key" {
 # Track team IP changes with terraform_data for controlled updates
 resource "terraform_data" "team_ip_tracker" {
   for_each = var.teams
-  
+
   input = {
-    team_id     = each.key
-    user        = each.value.user
-    private_ip  = each.value.private_ip
+    team_id    = each.key
+    user       = each.value.user
+    private_ip = each.value.private_ip
   }
 }
 

@@ -1,19 +1,15 @@
-output "private_ip" {
-  description = "Private IP address of the team VM"
-  value       = yandex_compute_instance.team.network_interface[0].ip_address
+output "instances" {
+  description = "Map of team VM instances with id, private_ip, and user"
+  value = {
+    for id, instance in cloudru_evolution_compute.team : id => {
+      id         = instance.id
+      private_ip = local.team_ips[id]
+      user       = var.teams[id].user
+    }
+  }
 }
 
-output "instance_id" {
-  description = "Instance ID of the team VM"
-  value       = yandex_compute_instance.team.id
-}
-
-output "fqdn" {
-  description = "FQDN of the team VM"
-  value       = yandex_compute_instance.team.fqdn
-}
-
-output "hostname" {
-  description = "Hostname of the team VM"
-  value       = yandex_compute_instance.team.hostname
+output "team_ips" {
+  description = "Map of static IPs assigned to each team VM"
+  value       = local.team_ips
 }

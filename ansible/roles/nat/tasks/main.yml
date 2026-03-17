@@ -1,0 +1,42 @@
+---
+- name: Enable IP forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    state: present
+    reload: true
+
+- name: Install iptables-persistent
+  apt:
+    name: iptables-persistent
+    state: present
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+- name: Set up NAT MASQUERADE
+  iptables:
+    table: nat
+    chain: POSTROUTING
+    source: "{{ private_cidr }}"
+    jump: MASQUERADE
+  notify: save iptables
+
+- name: Set up hairpin NAT PREROUTING
+  iptables:
+    table: nat
+    chain: PREROUTING
+    source: "{{ private_cidr }}"
+    destination: "{{ edge_public_ip }}"
+    jump: DNAT
+    to_destination: "{{ edge_private_ip }}"
+  notify: save iptables
+  when: edge_public_ip is defined
+
+- name: Set up hairpin NAT POSTROUTING
+  iptables:
+    table: nat
+    chain: POSTROUTING
+    source: "{{ private_cidr }}"
+    destination: "{{ edge_private_ip }}"
+    jump: MASQUERADE
+  notify: save iptables

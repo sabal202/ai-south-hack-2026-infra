@@ -1,9 +1,8 @@
 # =============================================================================
 # Team Credentials Management
 # =============================================================================
-# This file handles saving team SSH keys to files and generating credentials
-# documentation. Keys are generated in main.tf to avoid circular dependencies.
-# Separated from main infrastructure to allow independent updates.
+# Saves SSH keys to files and generates credentials documentation.
+# Keys are generated in main.tf. Separated for independent updates.
 # =============================================================================
 
 module "team_credentials" {
@@ -13,13 +12,13 @@ module "team_credentials" {
     for team_id, team_config in var.teams :
     team_id => {
       user       = team_config.user
-      private_ip = module.team_vm[team_id].private_ip
+      private_ip = module.team_vm.team_ips[team_id]
     }
   }
 
   domain     = var.domain
   jump_user  = var.jump_user
-  bastion_ip = module.edge.edge_public_ip
+  bastion_ip = module.edge.public_ip
 
   # Pass pre-generated SSH keys
   team_jump_private_keys   = { for k, v in tls_private_key.team_jump_key : k => v.private_key_openssh }

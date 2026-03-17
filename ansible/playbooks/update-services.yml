@@ -1,0 +1,19 @@
+---
+- name: Update edge services
+  hosts: edge
+  become: true
+  tasks:
+    - name: Include traefik role
+      include_role:
+        name: traefik
+    - name: Include xray role
+      include_role:
+        name: xray
+
+- name: Update team VM services
+  hosts: team_vms
+  become: true
+  tasks:
+    - name: Update Docker Compose stacks
+      debug:
+        msg: "Add service update tasks here when services are defined"

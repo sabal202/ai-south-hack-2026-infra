@@ -1,57 +1,45 @@
 # =============================================================================
-# Ubuntu Image Data Source
+# Team VM Instances (Cloud.ru Evolution)
+# =============================================================================
+# Ansible handles Docker install, routes, and services post-provisioning.
 # =============================================================================
 
-data "yandex_compute_image" "ubuntu" {
-  family = "ubuntu-2204-lts"
+locals {
+  team_ips = { for id, team in var.teams : id => team.ip }
 }
 
-# =============================================================================
-# Team VM Instance
-# =============================================================================
+resource "cloudru_evolution_compute" "team" {
+  for_each = var.teams
 
-resource "yandex_compute_instance" "team" {
-  name        = "${var.name}-team-${var.team_id}"
-  hostname    = "team-${var.team_id}"
-  platform_id = var.platform
-  zone        = var.zone
+  name      = "south-${each.key}"
+  flavor_id = var.flavor_id
 
-  resources {
-    cores         = var.cores
-    memory        = var.memory
-    core_fraction = var.core_fraction
+  availability_zone {
+    name = var.availability_zone_name
+  }
+
+  image {
+    name       = "ubuntu-22.04"
+    host_name  = "south-${each.key}"
+    user_name  = each.value.user
+    public_key = var.team_public_keys[each.key]
   }
 
   boot_disk {
-    initialize_params {
-      image_id = data.yandex_compute_image.ubuntu.id
-      size     = var.disk_size
-      type     = "network-ssd"
+    name = "south-${each.key}-boot"
+    size = var.disk_size
+    disk_type {
+      id = var.disk_type_id
     }
   }
 
-  network_interface {
-    subnet_id          = var.private_subnet_id
-    nat                = false # No public IP - traffic goes through NAT
-    security_group_ids = [var.team_sg_id]
-  }
-
-  metadata = {
-    user-data = templatefile("${path.module}/cloud-init.tpl", {
-      team_user   = var.team_user
-      public_keys = var.public_keys
-    })
-  }
-
-  scheduling_policy {
-    preemptible = var.preemptible
-  }
-
-  allow_stopping_for_update = true
-
-  lifecycle {
-    ignore_changes = [
-      boot_disk[0].initialize_params[0].image_id
-    ]
+  network_interfaces {
+    subnet {
+      name = var.private_subnet_name
+    }
+    security_groups {
+      id = var.security_group_id
+    }
+    ip_address = local.team_ips[each.key]
   }
 }

@@ -1,0 +1,10 @@
+---
+- name: Configure edge VM
+  hosts: edge
+  become: true
+  roles:
+    - common
+    - docker
+    - nat
+    - traefik
+    - xray

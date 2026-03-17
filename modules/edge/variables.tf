@@ -1,29 +1,11 @@
-variable "name" {
-  description = "Base name for edge resources"
+variable "flavor_id" {
+  description = "Compute flavor ID (looked up via data source in environment)"
   type        = string
 }
 
-variable "zone" {
-  description = "Yandex Cloud availability zone"
+variable "disk_type_id" {
+  description = "Boot disk type ID (looked up via data source in environment)"
   type        = string
-}
-
-variable "platform" {
-  description = "Platform ID for the VM"
-  type        = string
-  default     = "standard-v3"
-}
-
-variable "cores" {
-  description = "Number of CPU cores"
-  type        = number
-  default     = 2
-}
-
-variable "memory" {
-  description = "Memory in GB"
-  type        = number
-  default     = 4
 }
 
 variable "disk_size" {
@@ -32,56 +14,45 @@ variable "disk_size" {
   default     = 20
 }
 
-variable "core_fraction" {
-  description = "Guaranteed vCPU share (50, 100)"
-  type        = number
-  default     = 100
-}
-
-variable "preemptible" {
-  description = "Whether the VM is preemptible"
-  type        = bool
-  default     = false
-}
-
-variable "public_subnet_id" {
-  description = "ID of the public subnet"
+variable "availability_zone_id" {
+  description = "Availability zone ID for the floating IP"
   type        = string
 }
 
-variable "edge_sg_id" {
-  description = "ID of the edge security group"
+variable "availability_zone_name" {
+  description = "Availability zone name for the compute instance"
+  type        = string
+  default     = "ru.AZ-1"
+}
+
+variable "public_subnet_name" {
+  description = "Name of the public subnet for the external interface"
   type        = string
 }
 
-variable "private_subnet_cidr" {
-  description = "CIDR of the private subnet (for NAT rules)"
+variable "private_subnet_name" {
+  description = "Name of the private subnet for the internal/gateway interface"
   type        = string
 }
 
-variable "jump_user" {
-  description = "Username for jump host access"
+variable "security_group_id" {
+  description = "Security group ID applied to both interfaces"
+  type        = string
+}
+
+variable "user_name" {
+  description = "Username for SSH access on the edge VM"
   type        = string
   default     = "jump"
 }
 
-variable "jump_public_key" {
-  description = "SSH public key for jump host user (admin)"
+variable "public_key" {
+  description = "SSH public key for admin access"
   type        = string
 }
 
-variable "vless_server_ip" {
-  description = "VLESS server IP address (excluded from TPROXY to avoid loop)"
+variable "private_ip" {
+  description = "Static IP on the private interface (default gateway for team VMs)"
   type        = string
-  default     = ""
-}
-
-variable "traefik_config" {
-  description = "Traefik configuration content"
-  type        = string
-}
-
-variable "xray_config" {
-  description = "Xray configuration content"
-  type        = string
+  default     = "10.0.2.1"
 }

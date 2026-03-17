@@ -1,27 +1,33 @@
 # =============================================================================
-# Yandex Cloud Configuration
+# Cloud.ru Evolution Configuration
 # =============================================================================
 
-variable "folder_id" {
-  description = "Yandex Cloud folder ID"
+variable "project_id" {
+  description = "Cloud.ru Evolution project ID"
   type        = string
 }
 
-variable "zone" {
-  description = "Yandex Cloud availability zone"
+variable "auth_key_id" {
+  description = "Cloud.ru service account API key ID"
   type        = string
-  default     = "ru-central1-a"
+  sensitive   = true
+}
+
+variable "auth_secret" {
+  description = "Cloud.ru service account API secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "availability_zone_name" {
+  description = "Cloud.ru Evolution availability zone name"
+  type        = string
+  default     = "ru.AZ-1"
 }
 
 # =============================================================================
 # Network Configuration
 # =============================================================================
-
-variable "network_name" {
-  description = "Name of the VPC network"
-  type        = string
-  default     = "ai-camp-network"
-}
 
 variable "public_cidr" {
   description = "CIDR block for public subnet (edge/NAT)"
@@ -42,24 +48,18 @@ variable "private_cidr" {
 variable "project_name" {
   description = "Project name used for resource naming"
   type        = string
-  default     = "ai-camp"
+  default     = "aicamp"
 }
 
 variable "domain" {
   description = "Base domain for the camp"
   type        = string
-  default     = "camp.aitalenthub.ru"
+  default     = "south.aitalenthub.ru"
 }
 
 # =============================================================================
 # Edge VM Configuration
 # =============================================================================
-
-variable "edge_platform" {
-  description = "Platform ID for edge VM"
-  type        = string
-  default     = "standard-v3"
-}
 
 variable "edge_cores" {
   description = "Number of CPU cores for edge VM"
@@ -79,18 +79,6 @@ variable "edge_disk_size" {
   default     = 20
 }
 
-variable "edge_core_fraction" {
-  description = "Guaranteed vCPU share for edge VM (50, 100)"
-  type        = number
-  default     = 100
-}
-
-variable "edge_preemptible" {
-  description = "Whether edge VM is preemptible (cheaper but can be stopped)"
-  type        = bool
-  default     = false
-}
-
 variable "jump_user" {
   description = "Username for jump host access"
   type        = string
@@ -102,21 +90,9 @@ variable "jump_public_key" {
   type        = string
 }
 
-variable "jump_private_key_path" {
-  description = "Path to admin's private SSH key for bastion access (used by Terraform provisioner)"
-  type        = string
-  default     = "~/.ssh/id_ed25519"
-}
-
 # =============================================================================
 # Team VM Configuration
 # =============================================================================
-
-variable "team_platform" {
-  description = "Platform ID for team VMs"
-  type        = string
-  default     = "standard-v3"
-}
 
 variable "team_cores" {
   description = "Number of CPU cores for team VMs"
@@ -136,23 +112,12 @@ variable "team_disk_size" {
   default     = 65
 }
 
-variable "team_core_fraction" {
-  description = "Guaranteed vCPU share for team VMs (50, 100)"
-  type        = number
-  default     = 100
-}
-
-variable "team_preemptible" {
-  description = "Whether team VMs are preemptible"
-  type        = bool
-  default     = false
-}
-
 variable "teams" {
-  description = "Map of teams with their configuration. SSH keys are auto-generated for each team."
+  description = "Map of teams with their configuration"
   type = map(object({
     user        = string
-    public_keys = list(string) # Additional keys (optional)
+    public_keys = list(string)
+    ip          = string
   }))
   default = {}
 }

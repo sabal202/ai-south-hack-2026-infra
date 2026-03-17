@@ -1,19 +1,19 @@
-output "edge_public_ip" {
-  description = "Public IP address of the edge VM"
-  value       = yandex_compute_instance.edge.network_interface[0].nat_ip_address
+output "instance_id" {
+  description = "ID of the edge compute instance"
+  value       = cloudru_evolution_compute.edge.id
 }
 
-output "edge_private_ip" {
-  description = "Private IP address of the edge VM"
-  value       = yandex_compute_instance.edge.network_interface[0].ip_address
+output "public_ip" {
+  description = "Floating IP address of the edge VM"
+  value       = cloudru_evolution_fip.edge.ip_address
 }
 
-output "edge_instance_id" {
-  description = "Instance ID of the edge VM"
-  value       = yandex_compute_instance.edge.id
+output "private_ip" {
+  description = "Static private IP on the internal interface"
+  value       = var.private_ip
 }
 
-output "edge_fqdn" {
-  description = "FQDN of the edge VM"
-  value       = yandex_compute_instance.edge.fqdn
+output "fip_id" {
+  description = "ID of the floating IP resource"
+  value       = cloudru_evolution_fip.edge.id
 }

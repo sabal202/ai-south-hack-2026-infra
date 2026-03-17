@@ -41,8 +41,13 @@ resource "cloudru_evolution_compute" "edge" {
 
   network_interfaces {
     subnet { name = var.subnet_name }
+    security_groups { id = var.security_group_id }
     ip_address                 = var.ip_address
     interface_security_enabled = false
     fip { id = cloudru_evolution_fip.edge.id }
+  }
+
+  lifecycle {
+    ignore_changes = [network_interfaces]
   }
 }

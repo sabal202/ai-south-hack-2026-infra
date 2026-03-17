@@ -147,12 +147,13 @@ module "edge" {
   availability_zone_id   = local.az.id
   availability_zone_name = var.availability_zone_name
   subnet_name            = module.network.subnet_name
+  security_group_id      = module.security.edge_sg_id
   ip_address             = cidrhost(var.subnet_cidr, 10)
   user_name              = var.jump_user
   public_key             = var.jump_public_key
   password               = var.vm_password
 
-  depends_on = [module.network]
+  depends_on = [module.network, module.security]
 }
 
 # =============================================================================
@@ -189,6 +190,7 @@ resource "local_file" "ansible_inventory" {
     edge_public_ip  = module.edge.public_ip
     edge_private_ip = module.edge.private_ip
     edge_user       = var.jump_user
+    secrets_dir     = abspath("${path.module}/../../secrets")
     teams = {
       for id, team in var.teams : id => {
         user       = team.user

@@ -1,3 +1,32 @@
+# Placeholder SG for edge — not enforced (interface_security_enabled=false),
+# but Cloud.ru requires at least one SG assigned to an interface
+resource "cloudru_evolution_security_group" "edge" {
+  name        = "${var.name}-edge-sg"
+  description = "Permissive SG for edge VM (firewall via iptables)"
+
+  availability_zone {
+    id = var.availability_zone_id
+  }
+
+  rules {
+    direction        = "ingress"
+    ether_type       = "IPv4"
+    ip_protocol      = "any"
+    port_range       = "any"
+    remote_ip_prefix = "0.0.0.0/0"
+    description      = "Allow all inbound (iptables handles filtering)"
+  }
+
+  rules {
+    direction        = "egress"
+    ether_type       = "IPv4"
+    ip_protocol      = "any"
+    port_range       = "any"
+    remote_ip_prefix = "0.0.0.0/0"
+    description      = "Allow all outbound"
+  }
+}
+
 resource "cloudru_evolution_security_group" "team" {
   name        = "${var.name}-team-sg"
   description = "Security group for team VMs"

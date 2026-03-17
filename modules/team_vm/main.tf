@@ -43,4 +43,8 @@ resource "cloudru_evolution_compute" "team" {
     }
     ip_address = local.team_ips[each.key]
   }
+
+  lifecycle {
+    ignore_changes = [network_interfaces]
+  }
 }

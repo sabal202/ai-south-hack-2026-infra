@@ -48,6 +48,11 @@ variable "password" {
   default     = ""
 }
 
+variable "security_group_id" {
+  description = "ID of the security group for the edge VM interface"
+  type        = string
+}
+
 variable "ip_address" {
   description = "Static IP address for the edge VM"
   type        = string

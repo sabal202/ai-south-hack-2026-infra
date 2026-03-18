@@ -188,6 +188,7 @@
   loop:
     - playwright
   changed_when: false
+  when: inventory_hostname in groups['team_vms']
 
 # --- Claude Code (нативная установка с автообновлением) ---
 
@@ -206,6 +207,7 @@
   args:
     executable: /bin/bash
     creates: /root/.cache/ms-playwright
+  when: inventory_hostname in groups['team_vms']
 
 
 # --- uv (Python package manager) ---

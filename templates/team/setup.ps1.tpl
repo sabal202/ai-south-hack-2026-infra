@@ -25,7 +25,10 @@ $acl.SetAccessRule($rule)
 Set-Acl "$SshDir\$KeyName" $acl
 
 Write-Host "==> Проверяем соединение..."
-$result = ssh -F "$SshDir\ssh-config" -o ConnectTimeout=10 -o BatchMode=yes ${team_user} echo OK 2>&1
+$null = & {
+  $ErrorActionPreference = "Continue"
+  ssh -F "$SshDir\ssh-config" -o ConnectTimeout=10 -o BatchMode=yes ${team_user} echo OK 2>&1
+}
 if ($LASTEXITCODE -eq 0) {
   Write-Host ""
   Write-Host "v  Всё готово! Подключайся командой:" -ForegroundColor Green

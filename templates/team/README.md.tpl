@@ -30,7 +30,7 @@
    > ```
    > Затем снова запусти `setup.ps1`
 
-3. Подключись через терминал (PowerShell или CMD):
+3. Подключись через терминал (PowerShell):
    ```
    ssh -F $HOME\.ssh\ai-south-hack\ssh-config ${team_user}
    ```

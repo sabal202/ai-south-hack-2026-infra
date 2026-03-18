@@ -1,11 +1,11 @@
 # Руководство администратора
 
 > **Последнее обновление:** 2026-03-17
-> **Связанные документы:** [architecture.md](architecture.md), [xray-configuration.md](xray-configuration.md), [modules.md](modules.md)
+> **Связанные документы:** [architecture.md](architecture.md), [modules.md](modules.md)
 
 ## Обзор
 
-Это руководство для администраторов, управляющих инфраструктурой AI Talent Camp через Terraform и Ansible. Инфраструктура развертывается на Cloud.ru Evolution.
+Это руководство для администраторов, управляющих инфраструктурой AI South Hub 2026 через Terraform и Ansible. Инфраструктура развертывается на Cloud.ru Evolution.
 
 **Двухуровневая модель:**
 - **Terraform** -- провизионинг VM, сетей, security groups, генерация SSH-ключей
@@ -98,8 +98,8 @@ chmod +x /usr/local/bin/yq
 ### 1. Клонирование репозитория
 
 ```bash
-git clone https://github.com/AI-Talent-Camp-2026/ai-talent-camp-2026-infra.git
-cd ai-talent-camp-2026-infra
+git clone https://github.com/AI-South-Hub-2026/ai-south-hack-2026-infra.git
+cd ai-south-hack-2026-infra
 ```
 
 ### 2. Настройка переменных
@@ -121,8 +121,10 @@ auth_secret = ""
 jump_public_key = "ssh-ed25519 AAAA... admin@example.com"
 
 # Сетевые настройки (можно оставить по умолчанию)
-public_cidr  = "10.0.1.0/24"
-private_cidr = "10.0.2.0/24"
+subnet_cidr = "10.0.1.0/24"
+
+# Домен
+domain = "south.aitalenthub.ru"
 
 # Начальное развертывание - без команд
 teams = {}
@@ -148,15 +150,21 @@ terraform apply
 ```
 
 **Создается:**
-- Public и private subnets (без VPC ресурса -- в Cloud.ru Evolution подсети создаются напрямую)
-- Security groups
-- Edge/NAT VM с floating IP и двумя сетевыми интерфейсами
+- Единая подсеть 10.0.1.0/24 (без VPC ресурса — в Cloud.ru Evolution подсети создаются напрямую)
+- Security group для team VMs (edge VM без SG — firewall через iptables)
+- Edge/NAT VM с floating IP, один интерфейс (`interface_security_enabled=false`)
+- SSH ключи для команд, credentials в `secrets/team-{id}/`
 
 **Время:** ~5 минут
 
 #### Phase 2: Ansible -- настройка edge VM
 
 После `terraform apply` автоматически генерируется Ansible inventory в `ansible/inventory/hosts.yml`.
+
+> **Prerequisite:** файл `secrets/admin-keys.txt` должен содержать хотя бы один публичный SSH ключ администратора (по одному на строку). Без этого файла playbook `sync-keys.yml` завершится с ошибкой.
+> ```bash
+> echo "ssh-ed25519 AAAA... admin@example.com" > secrets/admin-keys.txt
+> ```
 
 ```bash
 cd ../../ansible
@@ -198,7 +206,7 @@ teams = {
   "team01" = {
     user        = "team01"
     public_keys = []
-    ip          = "10.0.2.11"
+    ip          = "10.0.1.11"
   }
 }
 ```
@@ -209,7 +217,7 @@ terraform apply
 ```
 
 **Создается:**
-- Team VM в private subnet со статическим IP 10.0.2.11
+- Team VM в private subnet со статическим IP 10.0.1.11
 - SSH ключи в `secrets/team-team01/` (папки именуются `secrets/team-<ключ_из_teams>/`)
 - Ansible inventory обновляется автоматически
 
@@ -242,10 +250,10 @@ curl ifconfig.co
 
 ```hcl
 teams = {
-  "team01"    = { user = "team01",    public_keys = [], ip = "10.0.2.11" }
-  "team02"    = { user = "team02",    public_keys = [], ip = "10.0.2.12" }
-  "team03"    = { user = "team03",    public_keys = [], ip = "10.0.2.13" }
-  "dashboard" = { user = "dashboard", public_keys = [], ip = "10.0.2.100" }
+  "team01"    = { user = "team01",    public_keys = [], ip = "10.0.1.11" }
+  "team02"    = { user = "team02",    public_keys = [], ip = "10.0.1.12" }
+  "team03"    = { user = "team03",    public_keys = [], ip = "10.0.1.13" }
+  "dashboard" = { user = "dashboard", public_keys = [], ip = "10.0.1.100" }
 }
 ```
 
@@ -294,9 +302,9 @@ dig bastion.south.aitalenthub.ru
 1. **Обновить terraform.tfvars:**
    ```hcl
    teams = {
-     "team01" = { user = "team01", public_keys = [], ip = "10.0.2.11" }
-     "team02" = { user = "team02", public_keys = [], ip = "10.0.2.12" }
-     "team03" = { user = "team03", public_keys = [], ip = "10.0.2.13" }  # новая
+     "team01" = { user = "team01", public_keys = [], ip = "10.0.1.11" }
+     "team02" = { user = "team02", public_keys = [], ip = "10.0.1.12" }
+     "team03" = { user = "team03", public_keys = [], ip = "10.0.1.13" }  # новая
    }
    ```
 
@@ -329,15 +337,15 @@ dig bastion.south.aitalenthub.ru
 
 1. **Backup данных** (если нужно):
    ```bash
-   ssh -F ~/.ssh/ai-camp/ssh-config team03 "tar czf ~/backup.tar.gz ~/workspace"
-   scp -F ~/.ssh/ai-camp/ssh-config team03:~/backup.tar.gz ./team03-backup.tar.gz
+   ssh -F secrets/team-team03/ssh-config team03 "tar czf ~/backup.tar.gz ~/workspace"
+   scp -F secrets/team-team03/ssh-config team03:~/backup.tar.gz ./team03-backup.tar.gz
    ```
 
 2. **Удалить из terraform.tfvars:**
    ```hcl
    teams = {
-     "team01" = { user = "team01", public_keys = [], ip = "10.0.2.11" }
-     "team02" = { user = "team02", public_keys = [], ip = "10.0.2.12" }
+     "team01" = { user = "team01", public_keys = [], ip = "10.0.1.11" }
+     "team02" = { user = "team02", public_keys = [], ip = "10.0.1.12" }
      # "team03" - удалена
    }
    ```
@@ -363,8 +371,6 @@ team_disk_size  = 100    # было 65
 ---
 
 ## Конфигурация Xray
-
-Подробнее см. [xray-configuration.md](xray-configuration.md).
 
 ### Обновление конфигурации через Ansible (рекомендованный способ)
 
@@ -418,24 +424,25 @@ sudo journalctl -u xray --no-pager -n 20
 
 ### Динамическая конфигурация
 
-Генерируется автоматически через Ansible-шаблон `ansible/roles/traefik/templates/dynamic.yml.j2`. Развертывается в `/etc/traefik/dynamic/teams.yml`.
+Генерируется автоматически через Ansible-шаблон `ansible/roles/traefik/templates/dynamic.yml.j2`. Развертывается в `/etc/traefik/dynamic/{team_id}.yml` — отдельный файл на каждую команду.
 
 **Формат:**
 ```yaml
-tcp:
+http:
   routers:
     team01:
-      entryPoints: ["websecure"]
-      rule: "HostSNI(`team01.south.aitalenthub.ru`)"
-      service: "team01"
+      rule: "Host(`team01.south.aitalenthub.ru`) || HostRegexp(`.*-team01\\.south\\.aitalenthub\\.ru`)"
+      service: team01
       tls:
-        passthrough: true
+        certResolver: letsencrypt
   services:
     team01:
       loadBalancer:
         servers:
-          - address: "10.0.2.11:443"
+          - url: "http://10.0.1.11:80"
 ```
+
+Edge Traefik выполняет HTTPS termination с автоматическим получением сертификата Let's Encrypt (ACME HTTP-01). Трафик до team VM передаётся по HTTP на порт 80.
 
 При добавлении новой команды конфиг обновляется через `ansible-playbook playbooks/edge.yml`.
 
@@ -452,33 +459,24 @@ tcp:
 
 **Шаг 2: Обновить динамическую конфигурацию**
 
-Отредактируйте Ansible-шаблон или непосредственно `/etc/traefik/dynamic/teams.yml` на edge VM:
+Отредактируйте Ansible-шаблон или непосредственно `/etc/traefik/dynamic/{team_id}.yml` на edge VM. Добавьте кастомный домен в правило `Host()` через `||`:
 
-**Для HTTPS (TLS Passthrough):**
-```yaml
-tcp:
-  routers:
-    team01-router:
-      entryPoints:
-        - websecure
-      # Добавить кастомный домен через ||
-      rule: "HostSNI(`team01.south.aitalenthub.ru`) || HostSNI(`app.mydomain.com`)"
-      service: team01-service
-      tls:
-        passthrough: true
-```
-
-**Для HTTP:**
 ```yaml
 http:
   routers:
-    team01-http:
-      entryPoints:
-        - web
-      # Добавить кастомный домен через ||
-      rule: "Host(`team01.south.aitalenthub.ru`) || Host(`app.mydomain.com`)"
-      service: team01-http-service
+    team01:
+      rule: "Host(`team01.south.aitalenthub.ru`) || HostRegexp(`.*-team01\\.south\\.aitalenthub\\.ru`) || Host(`app.mydomain.com`)"
+      service: team01
+      tls:
+        certResolver: letsencrypt
+  services:
+    team01:
+      loadBalancer:
+        servers:
+          - url: "http://10.0.1.11:80"
 ```
+
+SSL сертификат для кастомного домена будет получен автоматически через ACME (при условии что DNS настроен корректно).
 
 **Шаг 3: Применить изменения**
 
@@ -502,9 +500,9 @@ docker logs traefik | grep -i "app.mydomain.com"
 **Шаг 5: Уведомить команду**
 
 Сообщите команде, что домен добавлен. Команда должна:
-1. Настроить DNS (CNAME или A-запись)
-2. Обновить Nginx на своей VM
-3. Получить SSL сертификат
+1. Настроить DNS (CNAME или A-запись на edge VM)
+
+SSL сертификат будет выдан автоматически edge Traefik через ACME. На team VM ничего дополнительно настраивать не нужно.
 
 ---
 
@@ -554,7 +552,7 @@ htop
 
 ```bash
 # Backup всех secrets
-tar czf ai-camp-backup-$(date +%Y%m%d).tar.gz secrets/
+tar czf ai-south-hack-backup-$(date +%Y%m%d).tar.gz secrets/
 
 # Backup Terraform state
 cp environments/dev/terraform.tfstate terraform.tfstate.backup
@@ -565,9 +563,9 @@ cp environments/dev/terraform.tfstate terraform.tfstate.backup
 ```bash
 # Для каждой команды
 for team in team01 team02 team03; do
-  ssh -F ~/.ssh/ai-camp/ssh-config ${team} \
+  ssh -F secrets/team-${team}/ssh-config ${team} \
     "tar czf ~/team-backup.tar.gz ~/workspace"
-  scp -F ~/.ssh/ai-camp/ssh-config \
+  scp -F secrets/team-${team}/ssh-config \
     ${team}:~/team-backup.tar.gz \
     ./${team}-backup-$(date +%Y%m%d).tar.gz
 done
@@ -577,7 +575,7 @@ done
 
 ```bash
 # Восстановить secrets
-tar xzf ai-camp-backup-YYYYMMDD.tar.gz
+tar xzf ai-south-hack-backup-YYYYMMDD.tar.gz
 
 # Восстановить Terraform state (если необходимо)
 cp terraform.tfstate.backup environments/dev/terraform.tfstate
@@ -588,7 +586,8 @@ terraform apply
 
 # Настроить серверы через Ansible
 cd ../../ansible
-ansible-playbook playbooks/site.yml
+ansible-playbook playbooks/edge.yml
+ansible-playbook playbooks/team-vms.yml
 ```
 
 ---
@@ -624,7 +623,8 @@ terraform state show module.edge.cloudru_evolution_compute.edge
 cd ansible
 
 # Полная настройка всех серверов
-ansible-playbook playbooks/site.yml
+ansible-playbook playbooks/edge.yml
+ansible-playbook playbooks/team-vms.yml
 
 # Только edge VM
 ansible-playbook playbooks/edge.yml
@@ -643,10 +643,10 @@ ansible-playbook playbooks/edge.yml --tags traefik
 
 ```bash
 # Проверить connectivity между edge и team VM
-ssh jump@bastion.south.aitalenthub.ru "ping -c 3 10.0.2.11"
+ssh jump@bastion.south.aitalenthub.ru "ping -c 3 10.0.1.11"
 
 # Проверить NAT работает
-ssh -F ~/.ssh/ai-camp/ssh-config team01 "curl -s ifconfig.co"
+ssh -F secrets/team-team01/ssh-config team01 "curl -s ifconfig.co"
 
 # Проверить TPROXY активность
 ssh jump@bastion.south.aitalenthub.ru \
@@ -745,14 +745,9 @@ Internet -> Edge VM (Traefik) -> Team VM
                   +-- ...
 ```
 
-#### TLS Passthrough
+#### HTTPS termination на edge
 
-Traefik настроен в режиме TLS passthrough - SSL-терминация происходит на team VM.
-
-Это означает:
-1. Traefik не расшифровывает трафик
-2. Сертификат должен быть на team VM
-3. Полная end-to-end шифрование
+Traefik на edge VM выполняет HTTPS termination с автоматическим получением сертификатов Let's Encrypt (ACME HTTP-01). Трафик до team VM передаётся по HTTP на порт 80 (внутри приватной сети). Team VM дополнительно ничего настраивать не нужно.
 
 ### Управление конфигурацией Xray
 
@@ -841,7 +836,7 @@ Routing правила находятся в секции `routing.rules` кон
 
 ```bash
 # На edge VM
-sudo iptables -t mangle -D PREROUTING -s 10.0.2.0/24 -j XRAY
+sudo iptables -t mangle -D PREROUTING -s 10.0.1.0/24 -j XRAY
 sudo systemctl stop xray
 ```
 
@@ -850,7 +845,7 @@ sudo systemctl stop xray
 Для включения обратно:
 ```bash
 sudo systemctl start xray
-sudo iptables -t mangle -A PREROUTING -s 10.0.2.0/24 -j XRAY
+sudo iptables -t mangle -A PREROUTING -s 10.0.1.0/24 -j XRAY
 ```
 
 #### Диагностика Xray
@@ -893,7 +888,7 @@ sudo journalctl -u xray -f
 2. Проверить ключи:
    ```bash
    ssh-add -l
-   ls -la ~/.ssh/ai-camp/
+   ls -la secrets/team-<team_id>/
    ```
 
 #### TPROXY не работает
@@ -923,8 +918,6 @@ sudo journalctl -u xray -f
 
 ## Troubleshooting
 
-Для решения проблем см. [troubleshooting.md](troubleshooting.md).
-
 **Быстрые проверки:**
 
 ```bash
@@ -943,7 +936,5 @@ terraform init -upgrade
 ## См. также
 
 - [architecture.md](architecture.md) - архитектура инфраструктуры
-- [xray-configuration.md](xray-configuration.md) - конфигурация Xray
 - [modules.md](modules.md) - документация Terraform модулей
-- [troubleshooting.md](troubleshooting.md) - решение проблем
 - [development.md](development.md) - для разработчиков

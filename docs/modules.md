@@ -1,4 +1,4 @@
-# Документация модулей AI Talent Camp Infrastructure
+# Документация модулей AI South Hub 2026 Infrastructure
 
 > **Последнее обновление:** 2026-03-17
 > **Связанные документы:** [architecture.md](architecture.md), [admin-guide.md](admin-guide.md)
@@ -10,7 +10,7 @@
 **Terraform модули** (провизионинг VM, сетей, ключей):
 ```
 modules/
-├── network/           # Подсети (public + private)
+├── network/           # Единственная подсеть (10.0.1.0/24)
 ├── security/          # Security groups
 ├── edge/              # Edge/NAT VM с floating IP
 ├── team_vm/           # VM для команд
@@ -20,11 +20,12 @@ modules/
 **Ansible роли** (постнастройка серверов):
 ```
 ansible/roles/
-├── common/    # Базовые пакеты
-├── docker/    # Docker + Docker Compose
-├── nat/       # NAT (iptables MASQUERADE + hairpin NAT)
-├── traefik/   # Traefik reverse proxy (Docker)
-└── xray/      # Xray transparent proxy (systemd)
+├── common/        # Базовые пакеты, Node.js, uv, Claude Code, Playwright
+├── docker/        # Docker + Docker Compose
+├── nat/           # NAT (iptables MASQUERADE + hairpin NAT)
+├── traefik/       # Traefik reverse proxy (Docker, edge)
+├── team-traefik/  # HTTP-only Traefik (Docker, team VMs)
+└── xray/          # Xray transparent proxy (systemd)
 ```
 
 ---
@@ -35,19 +36,17 @@ ansible/roles/
 
 #### Назначение
 
-Создает публичную и приватную подсети. В Cloud.ru Evolution нет ресурса VPC -- подсети создаются как самостоятельные ресурсы.
+Создает единственную подсеть (10.0.1.0/24) для edge VM и team VMs. В Cloud.ru Evolution нет ресурса VPC -- подсети создаются как самостоятельные ресурсы.
 
 #### Ресурсы
 
-- `cloudru_evolution_subnet.public` -- публичная подсеть для edge VM (с `routed_network = true`)
-- `cloudru_evolution_subnet.private` -- приватная подсеть для team VMs
+- `cloudru_evolution_subnet.main` -- подсеть для всех VM (edge + teams), `routed_network = true`
 
 #### Входные переменные
 
 | Переменная | Тип | Описание |
 |------------|-----|----------|
-| `public_cidr` | string | CIDR публичной подсети |
-| `private_cidr` | string | CIDR приватной подсети |
+| `subnet_cidr` | string | CIDR единственной подсети (default: 10.0.1.0/24) |
 | `availability_zone_id` | string | ID зоны доступности |
 | `project_name` | string | Имя проекта для именования ресурсов |
 
@@ -55,8 +54,7 @@ ansible/roles/
 
 | Output | Описание |
 |--------|----------|
-| `public_subnet_name` | Имя публичной подсети |
-| `private_subnet_name` | Имя приватной подсети |
+| `subnet_name` | Имя подсети |
 
 #### Пример использования
 
@@ -64,8 +62,7 @@ ansible/roles/
 module "network" {
   source = "../../modules/network"
 
-  public_cidr          = "10.0.1.0/24"
-  private_cidr         = "10.0.2.0/24"
+  subnet_cidr          = "10.0.1.0/24"
   availability_zone_id = local.az.id
   project_name         = var.project_name
 }
@@ -84,26 +81,16 @@ module "network" {
 - `cloudru_evolution_security_group.edge` -- SG для edge VM
 - `cloudru_evolution_security_group.team` -- SG для team VMs
 
-#### Правила Edge SG
+> **Примечание:** Edge VM не имеет security group (`interface_security_enabled=false`) — firewall через iptables.
+
+#### Правила Team SG (team VMs)
 
 | Направление | Протокол | Порт | Источник |
 |-------------|----------|------|----------|
-| Ingress | TCP | 22 | 0.0.0.0/0 |
-| Ingress | TCP | 80 | 0.0.0.0/0 |
-| Ingress | TCP | 443 | 0.0.0.0/0 |
-| Ingress | ANY | - | private_cidr |
-| Ingress | ICMP | - | 0.0.0.0/0 |
-| Egress | ANY | - | 0.0.0.0/0 |
-
-#### Правила Team SG
-
-| Направление | Протокол | Порт | Источник |
-|-------------|----------|------|----------|
-| Ingress | TCP | 22 | public_cidr |
-| Ingress | TCP | 80 | public_cidr |
-| Ingress | TCP | 443 | public_cidr |
-| Ingress | ANY | - | private_cidr |
-| Ingress | ICMP | - | public_cidr |
+| Ingress | TCP | 22 | edge_ip/32 |
+| Ingress | TCP | 80 | edge_ip/32 |
+| Ingress | TCP | 443 | edge_ip/32 |
+| Ingress | ANY | - | subnet_cidr |
 | Egress | ANY | - | 0.0.0.0/0 |
 
 #### Входные переменные
@@ -111,8 +98,8 @@ module "network" {
 | Переменная | Тип | Описание |
 |------------|-----|----------|
 | `name` | string | Базовое имя для ресурсов |
-| `public_cidr` | string | CIDR публичной подсети |
-| `private_cidr` | string | CIDR приватной подсети |
+| `subnet_cidr` | string | CIDR подсети (10.0.1.0/24) |
+| `edge_private_ip` | string | IP edge VM для правил SG |
 | `availability_zone_id` | string | ID зоны доступности |
 
 #### Outputs
@@ -128,7 +115,7 @@ module "network" {
 
 #### Назначение
 
-Создает edge/NAT VM с floating IP и двумя сетевыми интерфейсами (public + private subnet).
+Создает edge/NAT VM с floating IP. Один сетевой интерфейс (`interface_security_enabled=false`), статический IP 10.0.1.10.
 
 #### Ресурсы
 
@@ -146,12 +133,11 @@ module "network" {
 | `disk_size` | number | Размер диска (GB) |
 | `availability_zone_id` | string | ID зоны доступности |
 | `availability_zone_name` | string | Имя зоны доступности |
-| `public_subnet_name` | string | Имя публичной подсети |
-| `private_subnet_name` | string | Имя приватной подсети |
-| `security_group_id` | string | ID edge security group |
+| `subnet_name` | string | Имя подсети |
+| `security_group_id` | string | ID security group |
+| `ip_address` | string | Статический IP (default: 10.0.1.10) |
 | `user_name` | string | Username для SSH |
 | `public_key` | string | SSH public key (админский) |
-| `private_ip` | string | Приватный IP в private subnet |
 
 #### Outputs
 
@@ -171,12 +157,11 @@ module "edge" {
   disk_size              = var.edge_disk_size
   availability_zone_id   = local.az.id
   availability_zone_name = var.availability_zone_name
-  public_subnet_name     = module.network.public_subnet_name
-  private_subnet_name    = module.network.private_subnet_name
+  subnet_name            = module.network.subnet_name
   security_group_id      = module.security.edge_sg_id
+  ip_address             = cidrhost(var.subnet_cidr, 10)
   user_name              = var.jump_user
   public_key             = var.jump_public_key
-  private_ip             = cidrhost(var.private_cidr, 1)
 
   depends_on = [module.network, module.security]
 }
@@ -188,7 +173,7 @@ module "edge" {
 
 #### Назначение
 
-Создает VM для команд в приватной подсети со статическими IP-адресами.
+Создает VM для команд в единственной подсети со статическими IP-адресами (задаются в `teams.ip`).
 
 #### Ресурсы
 
@@ -203,7 +188,7 @@ module "edge" {
 | `disk_type_id` | string | ID типа диска |
 | `disk_size` | number | Размер диска (GB) |
 | `availability_zone_name` | string | Имя зоны доступности |
-| `private_subnet_name` | string | Имя приватной подсети |
+| `subnet_name` | string | Имя подсети |
 | `security_group_id` | string | ID team security group |
 | `team_public_keys` | map(string) | Сгенерированные SSH public keys |
 
@@ -224,7 +209,7 @@ module "team_vm" {
   disk_type_id           = local.ssd_disk_type.id
   disk_size              = var.team_disk_size
   availability_zone_name = var.availability_zone_name
-  private_subnet_name    = module.network.private_subnet_name
+  subnet_name            = module.network.subnet_name
   security_group_id      = module.security.team_sg_id
 
   team_public_keys = {
@@ -245,8 +230,10 @@ module "team_vm" {
 
 #### Ресурсы
 
-- `local_file` -- приватные/публичные ключи для bastion, VM и GitHub
+- `local_file` -- приватный и публичный SSH ключ для каждой команды
 - `local_file` -- готовый SSH конфиг для каждой команды
+- `local_file` -- установочные скрипты (setup.sh, setup.bat, setup.ps1) и README.md
+- `local_file` -- сводный JSON `secrets/teams-credentials.json`
 
 #### Входные переменные
 
@@ -256,27 +243,25 @@ module "team_vm" {
 | `domain` | string | Базовый домен |
 | `jump_user` | string | Username для bastion |
 | `bastion_ip` | string | Публичный IP bastion |
-| `team_jump_private_keys` | map(string) | Приватные ключи для bastion |
-| `team_jump_public_keys` | map(string) | Публичные ключи для bastion |
-| `team_vm_private_keys` | map(string) | Приватные ключи для VM |
-| `team_vm_public_keys` | map(string) | Публичные ключи для VM |
-| `team_github_private_keys` | map(string) | Приватные ключи для GitHub |
-| `team_github_public_keys` | map(string) | Публичные ключи для GitHub |
+| `team_private_keys` | map(string) | Приватные SSH ключи (по одному на команду) |
+| `team_public_keys` | map(string) | Публичные SSH ключи (по одному на команду) |
 
 #### Генерируемые файлы
 
-Для каждой команды создаётся папка `secrets/team-<key>/` с файлами:
+Для каждой команды создаётся папка `secrets/team-{team_id}/` с файлами:
 
 ```
-secrets/team-team01/
-├── <user>-jump-key          # Приватный ключ для bastion
-├── <user>-jump-key.pub      # Публичный ключ для bastion
-├── <user>-key               # Приватный ключ для VM
-├── <user>-key.pub           # Публичный ключ для VM
-├── <user>-deploy-key        # Приватный ключ для GitHub
-├── <user>-deploy-key.pub    # Публичный ключ для GitHub
-└── ssh-config               # Готовый SSH конфиг
+secrets/team-dashboard/
+├── dashboard-key        # Приватный SSH ключ (для bastion и VM)
+├── dashboard-key.pub    # Публичный ключ
+├── ssh-config           # Готовый SSH конфиг
+├── setup.sh             # Установочный скрипт (Linux/macOS)
+├── setup.bat            # Установочный скрипт (Windows CMD)
+├── setup.ps1            # Установочный скрипт (PowerShell, UTF-8 BOM)
+└── README.md            # Инструкция для команды
 ```
+
+Плюс сводный файл: `secrets/teams-credentials.json`
 
 ---
 
@@ -284,7 +269,7 @@ secrets/team-team01/
 
 ### Role: common
 
-Устанавливает базовые пакеты: curl, wget, htop, jq, unzip, net-tools.
+Устанавливает базовые пакеты (curl, wget, btop, htop, bat, ripgrep, fd-find, jq, tmux, tree, ncdu и др.), настраивает `.bashrc` с алиасами и nvm. Устанавливает Node.js LTS (через nvm), uv (Python package manager). На team VMs дополнительно: Claude Code и Playwright+Chromium. Docker устанавливается отдельной ролью `docker`.
 
 **Применяется к:** edge VM, team VMs
 
@@ -313,6 +298,18 @@ secrets/team-team01/
 - Запускает контейнер с `network_mode: host`
 
 **Применяется к:** edge VM
+
+### Role: team-traefik
+
+Развертывает HTTP-only Traefik как Docker-контейнер на team VM:
+- Создает Docker-сеть `traefik`
+- Создает директорию `/etc/traefik/`
+- Развертывает статическую конфигурацию из Jinja2-шаблона
+- Запускает контейнер с портом 80, docker provider — автоматически обнаруживает сервисы команды по Docker labels
+
+**Применяется к:** team VMs
+
+---
 
 ### Role: xray
 
@@ -345,7 +342,7 @@ playbooks/site.yml
   |    -> roles: common, docker, nat, traefik, xray
   |
   -> playbooks/team-vms.yml
-       -> roles: common, docker
+       -> roles: common, docker, team-traefik
 ```
 
 ## Порядок развертывания
@@ -356,13 +353,11 @@ playbooks/site.yml
 
 ## Генерация ключей (в environments/dev/main.tf)
 
-Для каждой команды автоматически генерируются:
+Для каждой команды автоматически генерируется один ED25519-ключ:
 
-- `tls_private_key.team_jump_key` -- ключ для bastion
-- `tls_private_key.team_vm_key` -- ключ для VM команды
-- `tls_private_key.team_github_key` -- ключ для GitHub CI/CD
+- `tls_private_key.team_key[team_id]` -- ключ для bastion (с ограничением `permitopen`) и для входа на VM
 
-Все ключи сохраняются в `secrets/team-<key>/` вместе с готовым SSH config.
+Ключ сохраняется в `secrets/team-{team_id}/` вместе с готовым SSH конфигом и скриптами.
 
 ## Ansible Inventory
 

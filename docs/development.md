@@ -5,7 +5,7 @@
 
 ## Обзор
 
-Это руководство для контрибьюторов и разработчиков, работающих с AI Talent Camp Infrastructure.
+Это руководство для контрибьюторов и разработчиков, работающих с AI South Hub 2026 Infrastructure.
 
 ---
 
@@ -23,9 +23,9 @@
 ## Структура проекта
 
 ```
-ai-talent-camp-2026-infra/
+ai-south-hack-2026-infra/
 ├── modules/                    # Terraform модули
-│   ├── network/               # Подсети (public + private)
+│   ├── network/               # Единая подсеть 10.0.1.0/24
 │   ├── security/              # Security groups
 │   ├── edge/                  # Edge/NAT VM с floating IP
 │   ├── team_vm/               # VM для команд
@@ -51,16 +51,20 @@ ai-talent-camp-2026-infra/
 │   ├── architecture.md       # Архитектура
 │   ├── admin-guide.md        # Руководство администратора
 │   ├── user-guide.md         # Руководство пользователя
-│   ├── xray-configuration.md # Конфигурация Xray
-│   ├── troubleshooting.md    # Решение проблем
 │   ├── modules.md            # Документация модулей
 │   ├── changelog.md          # История изменений
 │   └── development.md        # Это руководство
 │
 ├── secrets/                   # Gitignored - генерируемые ключи
-│   ├── team01/
-│   ├── team02/
-│   └── xray-config.json
+│   ├── team-{id}/             # Папка каждой команды
+│   │   ├── {id}-key           # Приватный SSH ключ
+│   │   ├── {id}-key.pub       # Публичный ключ
+│   │   ├── ssh-config         # Готовый SSH конфиг
+│   │   ├── setup.sh / setup.bat / setup.ps1
+│   │   └── README.md
+│   ├── teams-credentials.json # Сводный JSON всех команд
+│   ├── xray-config.json       # Кладётся вручную перед деплоем
+│   └── admin-keys.txt         # Публичные ключи администраторов
 │
 ├── CLAUDE.md                  # Инструкции для Claude Code
 ├── .gitignore
@@ -109,7 +113,7 @@ module "team_credentials" {
 
 ```hcl
 # Хорошо: Объясняет "почему"
-# Edge VM подключен к обеим подсетям для NAT между ними
+# Edge VM в единой подсети 10.0.1.0/24, NAT через iptables MASQUERADE
 resource "cloudru_evolution_compute" "edge" {
   # ...
 }
@@ -358,8 +362,6 @@ refactor: migrate to Cloud.ru Evolution provider, add Ansible
 | Архитектура | [architecture.md](architecture.md) |
 | Администрирование | [admin-guide.md](admin-guide.md) |
 | Использование инфраструктуры | [user-guide.md](user-guide.md) |
-| Конфигурация Xray | [xray-configuration.md](xray-configuration.md) |
-| Решение проблем | [troubleshooting.md](troubleshooting.md) |
 | Описание модулей | [modules.md](modules.md) |
 | История изменений | [changelog.md](changelog.md) |
 | Для разработчиков | [development.md](development.md) |

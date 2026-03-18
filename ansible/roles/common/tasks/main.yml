@@ -197,6 +197,7 @@
     creates: "/home/{{ ansible_user }}/.local/bin/claude"
   become: true
   become_user: "{{ ansible_user }}"
+  when: inventory_hostname in groups['team_vms']
 
 - name: Install Playwright browsers with system deps
   shell: |

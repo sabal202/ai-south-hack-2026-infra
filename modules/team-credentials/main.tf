@@ -96,10 +96,11 @@ resource "local_file" "team_setup_ps1" {
 
   filename        = "${path.module}/${var.secrets_path}/team-${each.key}/setup.ps1"
   file_permission = "0644"
-  content = templatefile("${path.module}/../../templates/team/setup.ps1.tpl", {
+  # \uFEFF = UTF-8 BOM — required for PowerShell 5.x on Windows to read UTF-8 correctly
+  content = "\uFEFF${templatefile("${path.module}/../../templates/team/setup.ps1.tpl", {
     team_id   = each.key
     team_user = each.value.user
-  })
+  })}"
 }
 
 resource "local_file" "team_readme" {

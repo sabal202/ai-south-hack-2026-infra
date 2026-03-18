@@ -1,0 +1,42 @@
+# =============================================================================
+# AI South Hack — Setup SSH access for ${team_user}
+# =============================================================================
+$ErrorActionPreference = "Stop"
+
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$SshDir = Join-Path $HOME ".ssh\ai-south-hack"
+$KeyName = "${team_user}-key"
+
+Write-Host "==> Создаём директорию $SshDir"
+New-Item -ItemType Directory -Force -Path $SshDir | Out-Null
+
+Write-Host "==> Копируем ключи и конфиг"
+Copy-Item "$ScriptDir\$KeyName"     "$SshDir\$KeyName"     -Force
+Copy-Item "$ScriptDir\$KeyName.pub" "$SshDir\$KeyName.pub" -Force
+Copy-Item "$ScriptDir\ssh-config"   "$SshDir\ssh-config"   -Force
+
+Write-Host "==> Устанавливаем права доступа на приватный ключ"
+$acl = Get-Acl "$SshDir\$KeyName"
+$acl.SetAccessRuleProtection($true, $false)
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+  $env:USERNAME, "FullControl", "Allow"
+)
+$acl.SetAccessRule($rule)
+Set-Acl "$SshDir\$KeyName" $acl
+
+Write-Host "==> Проверяем соединение..."
+$result = ssh -F "$SshDir\ssh-config" -o ConnectTimeout=10 -o BatchMode=yes ${team_user} echo OK 2>&1
+if ($LASTEXITCODE -eq 0) {
+  Write-Host ""
+  Write-Host "v  Всё готово! Подключайся командой:" -ForegroundColor Green
+  Write-Host ""
+  Write-Host "   ssh -F $HOME\.ssh\ai-south-hack\ssh-config ${team_user}" -ForegroundColor Cyan
+  Write-Host ""
+} else {
+  Write-Host ""
+  Write-Host "!  Ключи установлены, но соединение не проверено (VM может быть ещё недоступна)." -ForegroundColor Yellow
+  Write-Host "   Попробуй подключиться позже:" -ForegroundColor Yellow
+  Write-Host ""
+  Write-Host "   ssh -F $HOME\.ssh\ai-south-hack\ssh-config ${team_user}" -ForegroundColor Cyan
+  Write-Host ""
+}

@@ -40,7 +40,7 @@
       authorized_key:
         user: jump
         state: present
-        key: "{{ lookup('file', playbook_dir + '/../../secrets/team-' + item.key + '/' + item.value.user + '-key.pub') }}"
+        key: "{{ lookup('file', playbook_dir + '/../../secrets/team-' + item.key + '/' + item.value.files.key + '.pub') }}"
         key_options: >-
           command="/bin/false",no-pty,no-X11-forwarding,no-agent-forwarding,permitopen="{{ item.value.private_ip }}:22"
       loop: "{{ teams_data.teams | dict2items }}"
@@ -79,11 +79,11 @@
         fail_msg: "secrets/admin-keys.txt contains no valid public keys. Add real admin public keys before running."
 
     - name: Ensure team key is present (idempotent)
-      # team_id — переменная из inventory/hosts.yml (например "dashboard"), используется для пути к ключу
+      # team_id — переменная из inventory/hosts.yml (например "dashboard"), ключи называются {team_id}-key
       authorized_key:
         user: "{{ ansible_user }}"
         state: present
-        key: "{{ lookup('file', playbook_dir + '/../../secrets/team-' + team_id + '/' + ansible_user + '-key.pub') }}"
+        key: "{{ lookup('file', playbook_dir + '/../../secrets/team-' + team_id + '/' + team_id + '-key.pub') }}"
 
     - name: Add admin keys to team VM
       authorized_key:

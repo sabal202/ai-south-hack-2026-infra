@@ -29,12 +29,13 @@
 
 1. [Подключение к VM](#подключение-к-vm)
 2. [Настройка окружения](#настройка-окружения)
-3. [Работа с доменами](#работа-с-доменами)
-4. [Развертывание приложений](#развертывание-приложений)
-5. [CI/CD и автодеплой](#cicd-и-автодеплой)
-6. [Базы данных](#базы-данных)
-7. [Мониторинг и логи](#мониторинг-и-логи)
-8. [Troubleshooting](#troubleshooting)
+3. [Деплой сервисов через Traefik](#деплой-сервисов-через-traefik)
+4. [Работа с доменами](#работа-с-доменами)
+5. [Развертывание приложений](#развертывание-приложений)
+6. [CI/CD и автодеплой](#cicd-и-автодеплой)
+7. [Базы данных](#базы-данных)
+8. [Мониторинг и логи](#мониторинг-и-логи)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -243,6 +244,52 @@ sudo systemctl status certbot.timer
 # Тестовый запуск обновления
 sudo certbot renew --dry-run
 ```
+
+---
+
+## Деплой сервисов через Traefik
+
+На вашей VM уже запущен Traefik — вам не нужно настраивать nginx, получать SSL сертификаты или открывать порты. Просто добавьте labels к своим Docker контейнерам.
+
+### Конвенция доменных имён
+
+Используйте суффикс `-<team-name>` в имени поддомена:
+
+| URL | Что это |
+|-----|---------|
+| `team01.south.aitalenthub.ru` | Главная страница вашей команды |
+| `n8n-team01.south.aitalenthub.ru` | n8n вашей команды |
+| `api-team01.south.aitalenthub.ru` | API вашей команды |
+| `anything-team01.south.aitalenthub.ru` | Любой сервис |
+
+Замените `team01` на ваш team ID.
+
+### Пример docker-compose.yml
+
+```yaml
+services:
+  n8n:
+    image: n8nio/n8n
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n-team01.south.aitalenthub.ru`)"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+
+networks:
+  traefik:
+    external: true   # сеть создана Ansible, не пересоздавать
+```
+
+После `docker compose up -d` сервис будет доступен по HTTPS через ~10 секунд (время выпуска сертификата).
+
+### Правила
+
+- Контейнер **обязательно** должен быть в сети `traefik` (`networks: - traefik`)
+- Без `traefik.enable=true` Traefik игнорирует контейнер
+- Укажите `server.port` если контейнер слушает не на 80
+- Не нужен маппинг `ports:` — Traefik обращается к контейнеру напрямую через Docker сеть
 
 ---
 

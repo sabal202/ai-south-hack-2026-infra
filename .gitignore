@@ -46,3 +46,4 @@ ansible/inventory/group_vars/
 .DS_Store
 Thumbs.db
 .superpowers/
+docs/superpowers/

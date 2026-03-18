@@ -71,7 +71,7 @@ resource "local_file" "team_ssh_config" {
 resource "local_file" "team_setup_sh" {
   for_each = var.teams
 
-  filename        = "${path.module}/${var.secrets_path}/team-${each.key}/setup.sh"
+  filename = "${path.module}/${var.secrets_path}/team-${each.key}/setup.sh"
   content = templatefile("${path.module}/../../templates/team/setup.sh.tpl", {
     team_user = each.value.user
   })
@@ -81,7 +81,8 @@ resource "local_file" "team_setup_sh" {
 resource "local_file" "team_setup_ps1" {
   for_each = var.teams
 
-  filename = "${path.module}/${var.secrets_path}/team-${each.key}/setup.ps1"
+  filename        = "${path.module}/${var.secrets_path}/team-${each.key}/setup.ps1"
+  file_permission = "0644"
   content = templatefile("${path.module}/../../templates/team/setup.ps1.tpl", {
     team_user = each.value.user
   })
@@ -90,7 +91,8 @@ resource "local_file" "team_setup_ps1" {
 resource "local_file" "team_readme" {
   for_each = var.teams
 
-  filename = "${path.module}/${var.secrets_path}/team-${each.key}/README.md"
+  filename        = "${path.module}/${var.secrets_path}/team-${each.key}/README.md"
+  file_permission = "0644"
   content = templatefile("${path.module}/../../templates/team/README.md.tpl", {
     team_user = each.value.user
     domain    = var.domain
@@ -118,11 +120,11 @@ resource "local_file" "teams_credentials_json" {
         ssh_command = "ssh -F ~/.ssh/ai-south-hack/ssh-config ${team_config.user}"
         folder      = "secrets/team-${team_id}/"
         files = {
-          key       = "${team_config.user}-key"
+          key        = "${team_config.user}-key"
           ssh_config = "ssh-config"
-          setup_sh  = "setup.sh"
-          setup_ps1 = "setup.ps1"
-          readme    = "README.md"
+          setup_sh   = "setup.sh"
+          setup_ps1  = "setup.ps1"
+          readme     = "README.md"
         }
       }
     }

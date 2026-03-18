@@ -76,6 +76,9 @@ api:
 **Динамическая конфигурация (шаблон Ansible, один файл на команду):**
 
 `/etc/traefik/dynamic/{{ team_id }}.yml` — генерируется из `inventory`:
+
+> **Важно:** team_id должны быть уникальны и не являться суффиксом друг друга (например, `team1` и `team10` — конфликт regex). Использовать полные имена: `team01`, `team02` или `dashboard`, `ml-team` и т.д.
+
 ```yaml
 http:
   routers:
@@ -94,6 +97,10 @@ http:
 **Volume-маппинги:**
 - `/etc/traefik:/etc/traefik` (rw — нужно для записи `acme.json`)
 - `/var/run/docker.sock` — НЕ монтируется (edge не управляет team контейнерами)
+
+**`acme.json`:** Ansible создаёт файл (`touch`, права `0600`) до запуска контейнера. Если файл уже существует — не трогать (идемпотентно через `state: touch` + `mode: "0600"`). Traefik дозаписывает данные в существующий файл.
+
+**Traefik dashboard:** `api.insecure: false` — dashboard не доступен снаружи, никакого дополнительного роутера не нужно.
 
 ### Team Traefik
 
@@ -184,9 +191,9 @@ Edge Traefik подхватывает новый dynamic файл автомат
 ```bash
 # terraform.tfvars: переименовать ключ, например "team01" → "dashboard"
 # terraform apply + ansible-playbook edge.yml
-# Старый dynamic файл удаляется, создаётся новый
-# Edge выпускает cert для новых доменов (HTTP-01), старые истекут сами
 ```
+
+Роль `traefik` на edge: удаляет все файлы `dynamic/*.yml` и генерирует заново из текущего inventory (не оставляет устаревших файлов). Edge Traefik выпускает cert для новых доменов (HTTP-01), старые cert истекут через 90 дней сами.
 
 ## Ansible
 
